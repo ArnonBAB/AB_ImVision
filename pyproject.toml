@@ -6,7 +6,6 @@ license = "MIT"
 readme = "README.md"
 authors = [{name = "Arnon A.B."}]
 dependencies = [
-    "numpy>=2.0.0",
     "matplotlib>=3.9.0",
     "ipywidgets>=8.0.0",
 ]

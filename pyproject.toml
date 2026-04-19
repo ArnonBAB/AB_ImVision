@@ -1,0 +1,22 @@
+[project]
+name = "AB_ImVision"
+version = "0.0.0"
+description = "Sliceviewer function just like Matlab's sliceviewer."
+license = "MIT"
+readme = "README.md"
+authors = [{name = "Arnon A.B."}]
+dependencies = [
+    "numpy>=2.0.0",
+    "matplotlib>=3.9.0",
+    "ipywidgets>=8.0.0",
+]
+
+[project.urls]
+Repository = "https://github.com/ArnonBAB/AB_ImVision"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]

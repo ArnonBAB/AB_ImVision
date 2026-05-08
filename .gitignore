@@ -4,4 +4,4 @@ dist/
 build/
 __pycache__/
 *.pyc
-*.cpython-311.pyc
+

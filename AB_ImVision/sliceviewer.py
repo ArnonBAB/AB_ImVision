@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 from ipywidgets import interact, IntSlider, FloatSlider, Dropdown, fixed
 
 # Function to display a 2D slice from the 3D volume with a consistent color scale
-def display_slice(volume, slice_index, slice_direction, vmin=None, vmax=None):
+def display_slice(volume, slice_index, slice_direction, vmin=None, vmax=None, figsize=None):
     if slice_direction not in ['[1 0 0]', '[0 1 0]', '[0 0 1]']:
         raise ValueError(f"Invalid slice direction '{slice_direction}'. Accepted directions are :[1 0 0]', '[0 1 0]', '[0 0 1]")
     
@@ -33,7 +33,7 @@ def display_slice(volume, slice_index, slice_direction, vmin=None, vmax=None):
     if vmax is None:
         vmax = np.max(volume)
 
-    plt.figure(figsize=(15, 10))
+    plt.figure(figsize=figsize)
     
     # Check which direction is selected by matching the vector
     if slice_direction == '[1 0 0]':  # X direction
@@ -51,7 +51,7 @@ def display_slice(volume, slice_index, slice_direction, vmin=None, vmax=None):
     plt.show()
 
 # Function to create and display an interactive viewer
-def interactive_slice_viewer(volume, default_slice_direction='[0 0 1]', vmin=None, vmax=None):
+def interactive_slice_viewer(volume, default_slice_direction='[0 0 1]', vmin=None, vmax=None, figsize=(8, 6)):
 
     if vmin is None:
         vmin = np.min(volume)
@@ -87,7 +87,7 @@ def interactive_slice_viewer(volume, default_slice_direction='[0 0 1]', vmin=Non
     slice_direction_widget.observe(update_slice_index_range, names='value')
 
     # Call the interactive slice viewer using interact
-    interact(display_slice, volume=fixed(volume), slice_index=slice_index_widget, vmin=vmin_slider_widget, vmax=vmax_slider_widget, slice_direction=slice_direction_widget)
+    interact(display_slice, volume=fixed(volume), slice_index=slice_index_widget, vmin=vmin_slider_widget, vmax=vmax_slider_widget, slice_direction=slice_direction_widget, figsize=fixed(figsize))
 
 
 

@@ -23,35 +23,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 from ipywidgets import interact, IntSlider, FloatSlider, Dropdown, fixed
 
-# Function to display a 2D slice from the 3D volume with a consistent color scale
-def display_slice(volume, slice_index, slice_direction, vmin=None, vmax=None):
-    if slice_direction not in ['[1 0 0]', '[0 1 0]', '[0 0 1]']:
-        raise ValueError(f"Invalid slice direction '{slice_direction}'. Accepted directions are :[1 0 0]', '[0 1 0]', '[0 0 1]")
-    
-    if vmin is None:
-        vmin = np.min(volume)
-    if vmax is None:
-        vmax = np.max(volume)
-
-    plt.figure(figsize=(15, 10))
-    
-    # Check which direction is selected by matching the vector
-    if slice_direction == '[1 0 0]':  # X direction
-        plt.imshow(volume[slice_index, :, :], cmap='gray', vmin=vmin, vmax=vmax)
-        plt.title(f'Slice {slice_index} along X axis')
-    elif slice_direction == '[0 1 0]':  # Y direction
-        plt.imshow(volume[:, slice_index, :], cmap='gray', vmin=vmin, vmax=vmax)
-        plt.title(f'Slice {slice_index} along Y axis')
-    elif slice_direction == '[0 0 1]':  # Z direction
-        plt.imshow(volume[:, :, slice_index], cmap='gray', vmin=vmin, vmax=vmax)
-        plt.title(f'Slice {slice_index} along Z axis')
-
-    plt.colorbar()
-    plt.axis('off')
-    plt.show()
-
 # Function to create and display an interactive viewer
-def interactive_slice_viewer(volume, default_slice_direction='[0 0 1]', vmin=None, vmax=None):
+def interactive_slice_viewer(volume: np.ndarray, default_slice_direction: str ='[0 0 1]', vmin: float=None, vmax: float=None, figsize: tuple=(8, 6)):
+    """
+    Creates a sliceviewer to scroll through the 2D slices of a 3D volume.
+
+    Args:
+        volume (numpy.ndarray): The 3D volume to be visualized.
+        default_slice_direction (str, optional): The default slice direction to display. 
+            Accepted values are '[1 0 0]', '[0 1 0]', '[0 0 1]'. Default is '[0 0 1]'.
+        vmin (float, optional): Minimum value for color scaling. If None, it will be set to the minimum of the volume.
+        vmax (float, optional): Maximum value for color scaling. If None, it will be set to the maximum of the volume.
+        figsize (tuple, optional): Size of the figure in inches. Default is (8, 6).
+    """
 
     if vmin is None:
         vmin = np.min(volume)
@@ -70,8 +54,8 @@ def interactive_slice_viewer(volume, default_slice_direction='[0 0 1]', vmin=Non
     slice_index_widget = IntSlider(min=0, max=volume.shape[next((i for i, v in enumerate(default_slice_direction.strip('[]').split()) if v == '1'), -1)]-1, step=1, value=0, description='Slice Index')
 
     # Create the slider for vmin and vmax
-    vmin_slider_widget = FloatSlider(min=vmin, max=vmax, step=0.001, value=np.min(volume), description='Colorbar Min')
-    vmax_slider_widget = FloatSlider(min=vmin, max=vmax, step=0.001, value=np.max(volume), description='Colorbar Max')
+    vmin_slider_widget = FloatSlider(min=vmin, max=vmax, step=(vmax - vmin) / 10000, value=np.min(volume), description='Colorbar Min', readout_format='.4g')
+    vmax_slider_widget = FloatSlider(min=vmin, max=vmax, step=(vmax - vmin) / 10000, value=np.max(volume), description='Colorbar Max', readout_format='.4g')
 
     # Function to update the slice index range based on selected direction
     def update_slice_index_range(change):
@@ -87,9 +71,35 @@ def interactive_slice_viewer(volume, default_slice_direction='[0 0 1]', vmin=Non
     slice_direction_widget.observe(update_slice_index_range, names='value')
 
     # Call the interactive slice viewer using interact
-    interact(display_slice, volume=fixed(volume), slice_index=slice_index_widget, vmin=vmin_slider_widget, vmax=vmax_slider_widget, slice_direction=slice_direction_widget)
+    interact(display_slice, volume=fixed(volume), slice_index=slice_index_widget, vmin=vmin_slider_widget, vmax=vmax_slider_widget, slice_direction=slice_direction_widget, figsize=fixed(figsize))
 
 
+# Function to display a 2D slice from the 3D volume with a consistent color scale
+def display_slice(volume, slice_index, slice_direction, vmin=None, vmax=None, figsize=None):
+    if slice_direction not in ['[1 0 0]', '[0 1 0]', '[0 0 1]']:
+        raise ValueError(f"Invalid slice direction '{slice_direction}'. Accepted directions are :[1 0 0]', '[0 1 0]', '[0 0 1]")
+    
+    if vmin is None:
+        vmin = np.min(volume)
+    if vmax is None:
+        vmax = np.max(volume)
+
+    plt.figure(figsize=figsize)
+    
+    # Check which direction is selected by matching the vector
+    if slice_direction == '[1 0 0]':  # X direction
+        plt.imshow(volume[slice_index, :, :], cmap='gray', vmin=vmin, vmax=vmax)
+        plt.title(f'Slice {slice_index} along X axis')
+    elif slice_direction == '[0 1 0]':  # Y direction
+        plt.imshow(volume[:, slice_index, :], cmap='gray', vmin=vmin, vmax=vmax)
+        plt.title(f'Slice {slice_index} along Y axis')
+    elif slice_direction == '[0 0 1]':  # Z direction
+        plt.imshow(volume[:, :, slice_index], cmap='gray', vmin=vmin, vmax=vmax)
+        plt.title(f'Slice {slice_index} along Z axis')
+
+    plt.colorbar()
+    plt.axis('off')
+    plt.show()
 
 
 

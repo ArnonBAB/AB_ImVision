@@ -1,6 +1,6 @@
 [project]
 name = "AB_ImVision"
-version = "0.0.0"
+version = "0.0.1"
 description = "Sliceviewer function just like Matlab's sliceviewer."
 license = "MIT"
 readme = "README.md"

@@ -51,7 +51,18 @@ def display_slice(volume, slice_index, slice_direction, vmin=None, vmax=None, fi
     plt.show()
 
 # Function to create and display an interactive viewer
-def interactive_slice_viewer(volume, default_slice_direction='[0 0 1]', vmin=None, vmax=None, figsize=(8, 6)):
+def interactive_slice_viewer(volume: np.ndarray, default_slice_direction: str ='[0 0 1]', vmin: float=None, vmax: float=None, figsize: tuple=(8, 6)):
+    """
+    Creates a sliceviewer to scroll through the 2D slices of a 3D volume.
+
+    Args:
+        volume (numpy.ndarray): The 3D volume to be visualized.
+        default_slice_direction (str, optional): The default slice direction to display. 
+            Accepted values are '[1 0 0]', '[0 1 0]', '[0 0 1]'. Default is '[0 0 1]'.
+        vmin (float, optional): Minimum value for color scaling. If None, it will be set to the minimum of the volume.
+        vmax (float, optional): Maximum value for color scaling. If None, it will be set to the maximum of the volume.
+        figsize (tuple, optional): Size of the figure in inches. Default is (8, 6).
+    """
 
     if vmin is None:
         vmin = np.min(volume)

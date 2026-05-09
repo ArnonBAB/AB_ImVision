@@ -54,8 +54,8 @@ def interactive_slice_viewer(volume: np.ndarray, default_slice_direction: str ='
     slice_index_widget = IntSlider(min=0, max=volume.shape[next((i for i, v in enumerate(default_slice_direction.strip('[]').split()) if v == '1'), -1)]-1, step=1, value=0, description='Slice Index')
 
     # Create the slider for vmin and vmax
-    vmin_slider_widget = FloatSlider(min=vmin, max=vmax, step=(vmax - vmin) / 10000, value=np.min(volume), description='Colorbar Min')
-    vmax_slider_widget = FloatSlider(min=vmin, max=vmax, step=(vmax - vmin) / 10000, value=np.max(volume), description='Colorbar Max')
+    vmin_slider_widget = FloatSlider(min=vmin, max=vmax, step=(vmax - vmin) / 10000, value=np.min(volume), description='Colorbar Min', readout_format='.4g')
+    vmax_slider_widget = FloatSlider(min=vmin, max=vmax, step=(vmax - vmin) / 10000, value=np.max(volume), description='Colorbar Max', readout_format='.4g')
 
     # Function to update the slice index range based on selected direction
     def update_slice_index_range(change):

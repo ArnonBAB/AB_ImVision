@@ -1,1 +1,1 @@
-from .sliceviewer import interactive_slice_viewer
+from .sliceviewer import slice_viewer

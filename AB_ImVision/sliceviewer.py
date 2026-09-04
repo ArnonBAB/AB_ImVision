@@ -10,7 +10,7 @@
 
 # Example, to use the function to view a volume, use: 
 
-# from AB_ImVision import interactive_slice_viewer 
+# from AB_ImVision import slice_viewer 
 # interactive_slice_viewer(volume, '[1 0 0]')
 
 ############################################################################################################################
@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 from ipywidgets import interact, IntSlider, FloatSlider, Dropdown, fixed
 
 # Function to create and display an interactive viewer
-def interactive_slice_viewer(volume: np.ndarray, voxel_size: tuple = (1.0,1.0,1.0), unit: str = 'um', default_slice_direction: str ='[0 0 1]', cmap: Colormap | str = 'gray', vmin: float=None, vmax: float=None, figsize: tuple=(8, 6)):
+def slice_viewer(volume: np.ndarray, voxel_size: tuple = (1.0,1.0,1.0), unit: str = 'um', default_slice_direction: str ='[0 0 1]', cmap: Colormap | str = 'gray', vmin: float=None, vmax: float=None, figsize: tuple=(8, 6)):
     """
     Creates a sliceviewer to scroll through the 2D slices of a 3D volume.
 

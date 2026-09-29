@@ -11,163 +11,312 @@
 # Example, to use the function to view a volume, use: 
 
 # from AB_ImVision import slice_viewer 
-# interactive_slice_viewer(volume, '[1 0 0]')
+# slice_viewer(volume, '[1 0 0]')
 
 ############################################################################################################################
 ############################################################################################################################
 ############################################################################################################################
 
-# TODO Removing the flickering caused by constantly using plot.show. Need to keep the figure open and just update the image data.
+from io import BytesIO
 
-from matplotlib.colors import Colormap
-from networkx import volume
 import numpy as np
 import matplotlib.pyplot as plt
-from ipywidgets import interact, IntSlider, FloatSlider, Dropdown, fixed
 
-# Function to create and display an interactive viewer
-def slice_viewer(volume: np.ndarray, voxel_size: tuple = (1.0,1.0,1.0), unit: str = 'um', default_slice_direction: str ='[0 0 1]', cmap: Colormap | str = 'gray', vmin: float=None, vmax: float=None, figsize: tuple=(8, 6)):
+from matplotlib.colors import Colormap
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+from IPython.display import display
+from ipywidgets import Dropdown, FloatSlider, IntSlider, HBox, VBox, Image, Layout
+
+
+def slice_viewer(
+    volume: np.ndarray,
+    voxel_size: tuple = (1.0, 1.0, 1.0),
+    unit: str = "um",
+    default_slice_direction: str = "[0 0 1]",
+    cmap: Colormap | str = "gray",
+    vmin: float | None = None,
+    vmax: float | None = None,
+    figsize: tuple = (4, 4),
+):
     """
-    Creates a sliceviewer to scroll through the 2D slices of a 3D volume.
+    Interactive slice viewer for a 3D NumPy array.
+
+    The volume axes are interpreted as:
+
+        volume[x, y, z]
 
     Args:
-        volume (numpy.ndarray): The 3D volume to be visualized.
-        default_slice_direction (str, optional): The default slice direction to display. 
-            Accepted values are '[1 0 0]', '[0 1 0]', '[0 0 1]'. Default is '[0 0 1]'.
-        voxel_size (tuple, optional): The size of each voxel in the volume. Default is (1.0, 1.0, 1.0).
-        unit (str, optional): The unit of measurement for the voxel size. Default is 'um'.
-        cmap (str or Colormap), optional): Colormap to use for displaying the slices. Default is 'gray'.
-        vmin (float, optional): Minimum value for color scaling. If None, it will be set to the minimum of the volume.
-        vmax (float, optional): Maximum value for color scaling. If None, it will be set to the maximum of the volume.
-        figsize (tuple, optional): Size of the figure in inches. Default is (8, 6).
+        volume:
+            Three-dimensional array to display.
+        voxel_size:
+            Physical voxel size in the X, Y and Z directions.
+        unit:
+            Unit used for the axis labels.
+        default_slice_direction:
+            Initial slicing direction. Must be '[1 0 0]',
+            '[0 1 0]' or '[0 0 1]'.
+        cmap:
+            Matplotlib colormap.
+        vmin:
+            Initial lower color limit.
+        vmax:
+            Initial upper color limit.
+        figsize:
+            Matplotlib figure size.
     """
 
-    if vmin is None:
-        vmin = np.min(volume)
-    if vmax is None:
-        vmax = np.max(volume)
+    volume = np.asarray(volume)
 
-    # Create the dropdown for slice direction with a specified default value
-    slice_direction_widget = Dropdown(
-        options=['[1 0 0]', '[0 1 0]', '[0 0 1]'],
-        value=default_slice_direction,  # Use the provided default value
-        description='Slice Direction:',
-        style={'description_width': 'initial'}
+    if volume.ndim != 3:
+        raise ValueError(
+            f"volume must be three-dimensional, but has shape {volume.shape}"
+        )
+
+    directions = {
+        "[1 0 0]": 0,
+        "[0 1 0]": 1,
+        "[0 0 1]": 2,
+    }
+
+    if default_slice_direction not in directions:
+        raise ValueError(
+            "default_slice_direction must be "
+            "'[1 0 0]', '[0 1 0]' or '[0 0 1]'"
+        )
+
+    if len(voxel_size) != 3:
+        raise ValueError("voxel_size must contain exactly three values")
+
+    if vmin is None:
+        vmin = float(np.nanmin(volume))
+
+    if vmax is None:
+        vmax = float(np.nanmax(volume))
+
+    if vmax < vmin:
+        raise ValueError("vmax must be greater than or equal to vmin")
+
+    # FloatSlider requires a nonzero step.
+    value_range = vmax - vmin
+    slider_step = value_range / 1000 if value_range > 0 else 1.0
+
+    # ------------------------------------------------------------------
+    # Widgets
+    # ------------------------------------------------------------------
+
+    direction_widget = Dropdown(
+        options=list(directions),
+        value=default_slice_direction,
+        description="Direction:",
+        style={"description_width": "initial"},
     )
 
-    # Create the slider for slice index
-    slice_index_widget = IntSlider(min=0, max=volume.shape[next((i for i, v in enumerate(default_slice_direction.strip('[]').split()) if v == '1'), -1)]-1, step=1, value=0, description='Slice Index')
+    initial_axis = directions[default_slice_direction]
 
-    # Create the slider for vmin and vmax
-    vmin_slider_widget = FloatSlider(min=vmin, max=vmax, step=(vmax - vmin) / 10000, value=np.min(volume), description='Colorbar Min', readout_format='.4g')
-    vmax_slider_widget = FloatSlider(min=vmin, max=vmax, step=(vmax - vmin) / 10000, value=np.max(volume), description='Colorbar Max', readout_format='.4g')
+    slice_widget = IntSlider(
+        min=0,
+        max=volume.shape[initial_axis] - 1,
+        value=volume.shape[initial_axis] // 2,
+        step=1,
+        description="Slice:",
+        continuous_update=True,
+        style={"description_width": "initial"},
+    )
 
-    # Function to update the slice index range based on selected direction
-    def update_slice_index_range(change):
-        new_direction = change['new']  # Get the new value of slice_direction
-        if new_direction == '[1 0 0]':  # X direction
-            slice_index_widget.max = volume.shape[0] - 1
-        elif new_direction == '[0 1 0]':  # Y direction
-            slice_index_widget.max = volume.shape[1] - 1
-        elif new_direction == '[0 0 1]':  # Z direction
-            slice_index_widget.max = volume.shape[2] - 1
-        slice_index_widget.value = 0  # Reset to the first slice when direction changes
+    vmin_widget = FloatSlider(
+        min=vmin,
+        max=vmax,
+        value=vmin,
+        step=slider_step,
+        description="Color min:",
+        readout_format=".4g",
+        continuous_update=True,
+        style={"description_width": "initial"},
+    )
 
-    slice_direction_widget.observe(update_slice_index_range, names='value')
+    vmax_widget = FloatSlider(
+        min=vmin,
+        max=vmax,
+        value=vmax,
+        step=slider_step,
+        description="Color max:",
+        readout_format=".4g",
+        continuous_update=True,
+        style={"description_width": "initial"},
+    )
 
-    # Create figure only once
-    fig, ax = plt.subplots(figsize=figsize)
+    # This is the widget that remains visible in the notebook.
+    image_widget = Image(format="png", layout = Layout(width="500px", height ="auto"))
+
+    # ------------------------------------------------------------------
+    # Create the Matplotlib figure once
+    # ------------------------------------------------------------------
+
+    fig, ax = plt.subplots(figsize=figsize, dpi = 160)
+
+    # Prevent the inline backend from displaying this figure separately.
+    plt.close(fig)
+
+    # Use a non-interactive canvas to render the figure to PNG.
+    canvas = FigureCanvasAgg(fig)
+
+    initial_image, initial_extent, labels = _get_slice(
+        volume=volume,
+        voxel_size=voxel_size,
+        direction=default_slice_direction,
+        index=slice_widget.value,
+    )
 
     im = ax.imshow(
-        volume[:, :, 0],
+        initial_image,
         cmap=cmap,
         vmin=vmin,
         vmax=vmax,
-        origin='lower'
+        extent=initial_extent,
+        origin="lower",
+        aspect="equal",
     )
 
-    cbar = fig.colorbar(im, ax=ax)
+    colorbar = fig.colorbar(im, ax=ax)
 
-    plt.show()
+    # Leave enough room for labels and colorbar.
+    fig.tight_layout()
 
-    # Call the interactive slice viewer using interact
-    # interact(_display_slice, volume=fixed(volume), voxel_size=fixed(voxel_size), unit=fixed(unit), slice_index=slice_index_widget, vmin=vmin_slider_widget, vmax=vmax_slider_widget, slice_direction=slice_direction_widget, figsize=fixed(figsize), cmap=fixed(cmap))
-    interact(
-        _display_slice,
-        volume=fixed(volume),
-        voxel_size=fixed(voxel_size),
-        unit=fixed(unit),
-        slice_index=slice_index_widget,
-        vmin=vmin_slider_widget,
-        vmax=vmax_slider_widget,
-        slice_direction=slice_direction_widget,
-        figsize=fixed(figsize),
-        cmap=fixed(cmap),
-        fig=fixed(fig),
-        ax=fixed(ax),
-        im=fixed(im)
+    # ------------------------------------------------------------------
+    # Rendering and updating
+    # ------------------------------------------------------------------
+
+    def render_figure():
+        """Render the existing figure into the Image widget."""
+
+        canvas.draw()
+
+        buffer = BytesIO()
+        canvas.print_png(buffer)
+
+        image_widget.value = buffer.getvalue()
+        buffer.close()
+
+    def update_plot(change=None):
+        """Update the existing Matplotlib image."""
+
+        direction = direction_widget.value
+        index = slice_widget.value
+
+        image_data, extent, labels = _get_slice(
+            volume=volume,
+            voxel_size=voxel_size,
+            direction=direction,
+            index=index,
+        )
+
+        # Update the existing image. No new axes or figure are created.
+        im.set_data(image_data)
+        im.set_extent(extent)
+        im.set_clim(vmin_widget.value, vmax_widget.value)
+
+        ax.set_xlabel(f"{labels['horizontal']} axis ({unit})")
+        ax.set_ylabel(f"{labels['vertical']} axis ({unit})")
+        ax.set_title(
+            f"{labels['fixed']} slice {index} "
+            f"at {index * labels['spacing']:.4g} {unit}"
+        )
+
+        # The image shape and extent may have changed after choosing
+        # another slicing direction.
+        ax.set_xlim(extent[0], extent[1])
+        ax.set_ylim(extent[2], extent[3])
+
+        render_figure()
+
+    def update_direction(change):
+        """Adjust the slider range when the direction changes."""
+
+        axis = directions[change["new"]]
+
+        slice_widget.max = volume.shape[axis] - 1
+        slice_widget.value = volume.shape[axis] // 2
+
+        update_plot()
+
+    # Direction gets its own callback because it also changes slider limits.
+    direction_widget.observe(update_direction, names="value")
+
+    # These controls only require a plot update.
+    slice_widget.observe(update_plot, names="value")
+    vmin_widget.observe(update_plot, names="value")
+    vmax_widget.observe(update_plot, names="value")
+
+    controls = VBox(
+        [
+            HBox([direction_widget, slice_widget]),
+            HBox([vmin_widget, vmax_widget]),
+        ]
     )
 
-# Function to display a 2D slice from the 3D volume with a consistent color scale
-def _display_slice(volume, slice_index, slice_direction, voxel_size=(1.0,1.0,1.0), unit='um', vmin=None, vmax=None, figsize=None, cmap='gray', fig=None, ax=None, im=None):
-# def _display_slice(volume, slice_index, slice_direction, voxel_size = (1.0,1.0,1.0), unit='um', vmin=None, vmax=None, figsize=None, cmap='gray'):
-    if slice_direction not in ['[1 0 0]', '[0 1 0]', '[0 0 1]']:
-        raise ValueError(f"Invalid slice direction '{slice_direction}'. Accepted directions are :[1 0 0]', '[0 1 0]', '[0 0 1]")
+    viewer = VBox([controls, image_widget])
 
-    d1, d2, d3 = voxel_size
-    n1, n2, n3 = volume.shape
+    # Draw the initial image.
+    update_plot()
 
-    if vmin is None:
-        vmin = np.min(volume)
-    if vmax is None:
-        vmax = np.max(volume)
+    display(viewer)
 
-    
-    # # Check which direction is selected by matching the vector
-    # if slice_direction == '[1 0 0]':  # 1st direction
-    #     plt.xlabel(f'Z axis ({unit})')
-    #     plt.ylabel(f'X axis ({unit})')
-    #     plt.imshow(volume[slice_index, :, :], cmap=cmap, vmin=vmin, vmax=vmax, extent=(0, n3*d3 , 0, n2*d2), aspect='equal', origin='lower')
-    #     plt.title(f'Slice {slice_index} along Y axis')
-    # elif slice_direction == '[0 1 0]':  # 2nd direction
-    #     plt.xlabel(f'Z axis ({unit})')
-    #     plt.ylabel(f'Y axis ({unit})')
-    #     plt.imshow(volume[:, slice_index, :], cmap=cmap, vmin=vmin, vmax=vmax, extent=(0,n3*d3, 0, n1*d1), aspect='equal', origin='lower')
-    #     plt.title(f'Slice {slice_index} along X axis')
-    # elif slice_direction == '[0 0 1]':  # 3rd direction
-    #     plt.xlabel(f'Y axis ({unit})')
-    #     plt.ylabel(f'X axis ({unit})')
-    #     plt.imshow(volume[:, :, slice_index], cmap=cmap, vmin=vmin, vmax=vmax, extent=(0, n2*d2, 0, n1*d1), aspect='equal', origin='lower')
-    #     plt.title(f'Slice {slice_index} along Z axis')
+    # Returning the widgets can be useful if you want to modify them later.
+    return None
 
-    if slice_direction == '[1 0 0]':
 
-        img = volume[slice_index, :, :]
+def _get_slice(
+    volume: np.ndarray,
+    voxel_size: tuple,
+    direction: str,
+    index: int,
+):
+    """Return image data, physical extent and axis information."""
 
-        im.set_extent((0, n3*d3, 0, n2*d2))
-        ax.set_xlabel(f'Z axis ({unit})')
-        ax.set_ylabel(f'X axis ({unit})')
-        ax.set_title(f'Slice {slice_index} along Y axis')
+    nx, ny, nz = volume.shape
+    dx, dy, dz = voxel_size
 
-    elif slice_direction == '[0 1 0]':
+    if direction == "[1 0 0]":
+        # Fix X, display the Y-Z plane.
+        image = volume[index, :, :]
 
-        img = volume[:, slice_index, :]
+        extent = (0, nz * dz, 0, ny * dy)
 
-        im.set_extent((0, n3*d3, 0, n1*d1))
-        ax.set_xlabel(f'Z axis ({unit})')
-        ax.set_ylabel(f'Y axis ({unit})')
-        ax.set_title(f'Slice {slice_index} along X axis')
+        labels = {
+            "horizontal": "Z",
+            "vertical": "Y",
+            "fixed": "X",
+            "spacing": dx,
+        }
+
+    elif direction == "[0 1 0]":
+        # Fix Y, display the X-Z plane.
+        image = volume[:, index, :]
+
+        extent = (0, nz * dz, 0, nx * dx)
+
+        labels = {
+            "horizontal": "Z",
+            "vertical": "X",
+            "fixed": "Y",
+            "spacing": dy,
+        }
+
+    elif direction == "[0 0 1]":
+        # Fix Z, display the X-Y plane.
+        image = volume[:, :, index]
+
+        extent = (0, ny * dy, 0, nx * dx)
+
+        labels = {
+            "horizontal": "Y",
+            "vertical": "X",
+            "fixed": "Z",
+            "spacing": dz,
+        }
 
     else:
+        raise ValueError(f"Invalid slicing direction: {direction}")
 
-        img = volume[:, :, slice_index]
-
-        im.set_extent((0, n2*d2, 0, n1*d1))
-        ax.set_xlabel(f'Y axis ({unit})')
-        ax.set_ylabel(f'X axis ({unit})')
-        ax.set_title(f'Slice {slice_index} along Z axis')
-
-    im.set_data(img)
-    im.set_clim(vmin, vmax)
-
-    fig.canvas.draw_idle()
+    return image, extent, labels

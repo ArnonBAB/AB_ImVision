@@ -75,12 +75,42 @@ def slice_viewer(volume: np.ndarray, voxel_size: tuple = (1.0,1.0,1.0), unit: st
 
     slice_direction_widget.observe(update_slice_index_range, names='value')
 
-    # Call the interactive slice viewer using interact
-    interact(_display_slice, volume=fixed(volume), voxel_size=fixed(voxel_size), unit=fixed(unit), slice_index=slice_index_widget, vmin=vmin_slider_widget, vmax=vmax_slider_widget, slice_direction=slice_direction_widget, figsize=fixed(figsize), cmap=fixed(cmap))
+    # Create figure only once
+    fig, ax = plt.subplots(figsize=figsize)
 
+    im = ax.imshow(
+        volume[:, :, 0],
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
+        origin='lower'
+    )
+
+    cbar = fig.colorbar(im, ax=ax)
+
+    plt.show()
+
+    # Call the interactive slice viewer using interact
+    # interact(_display_slice, volume=fixed(volume), voxel_size=fixed(voxel_size), unit=fixed(unit), slice_index=slice_index_widget, vmin=vmin_slider_widget, vmax=vmax_slider_widget, slice_direction=slice_direction_widget, figsize=fixed(figsize), cmap=fixed(cmap))
+    interact(
+        _display_slice,
+        volume=fixed(volume),
+        voxel_size=fixed(voxel_size),
+        unit=fixed(unit),
+        slice_index=slice_index_widget,
+        vmin=vmin_slider_widget,
+        vmax=vmax_slider_widget,
+        slice_direction=slice_direction_widget,
+        figsize=fixed(figsize),
+        cmap=fixed(cmap),
+        fig=fixed(fig),
+        ax=fixed(ax),
+        im=fixed(im)
+    )
 
 # Function to display a 2D slice from the 3D volume with a consistent color scale
-def _display_slice(volume, slice_index, slice_direction, voxel_size = (1.0,1.0,1.0), unit='um', vmin=None, vmax=None, figsize=None, cmap='gray'):
+def _display_slice(volume, slice_index, slice_direction, voxel_size=(1.0,1.0,1.0), unit='um', vmin=None, vmax=None, figsize=None, cmap='gray', fig=None, ax=None, im=None):
+# def _display_slice(volume, slice_index, slice_direction, voxel_size = (1.0,1.0,1.0), unit='um', vmin=None, vmax=None, figsize=None, cmap='gray'):
     if slice_direction not in ['[1 0 0]', '[0 1 0]', '[0 0 1]']:
         raise ValueError(f"Invalid slice direction '{slice_direction}'. Accepted directions are :[1 0 0]', '[0 1 0]', '[0 0 1]")
 
@@ -92,32 +122,52 @@ def _display_slice(volume, slice_index, slice_direction, voxel_size = (1.0,1.0,1
     if vmax is None:
         vmax = np.max(volume)
 
-    plt.figure(figsize=figsize)
     
-    # Check which direction is selected by matching the vector
-    if slice_direction == '[1 0 0]':  # 1st direction
-        plt.xlabel(f'Z axis ({unit})')
-        plt.ylabel(f'X axis ({unit})')
-        plt.imshow(volume[slice_index, :, :], cmap=cmap, vmin=vmin, vmax=vmax, extent=(0, n3*d3 , 0, n2*d2), aspect='equal', origin='lower')
-        plt.title(f'Slice {slice_index} along Y axis')
-    elif slice_direction == '[0 1 0]':  # 2nd direction
-        plt.xlabel(f'Z axis ({unit})')
-        plt.ylabel(f'Y axis ({unit})')
-        plt.imshow(volume[:, slice_index, :], cmap=cmap, vmin=vmin, vmax=vmax, extent=(0,n3*d3, 0, n1*d1), aspect='equal', origin='lower')
-        plt.title(f'Slice {slice_index} along X axis')
-    elif slice_direction == '[0 0 1]':  # 3rd direction
-        plt.xlabel(f'Y axis ({unit})')
-        plt.ylabel(f'X axis ({unit})')
-        plt.imshow(volume[:, :, slice_index], cmap=cmap, vmin=vmin, vmax=vmax, extent=(0, n2*d2, 0, n1*d1), aspect='equal', origin='lower')
-        plt.title(f'Slice {slice_index} along Z axis')
+    # # Check which direction is selected by matching the vector
+    # if slice_direction == '[1 0 0]':  # 1st direction
+    #     plt.xlabel(f'Z axis ({unit})')
+    #     plt.ylabel(f'X axis ({unit})')
+    #     plt.imshow(volume[slice_index, :, :], cmap=cmap, vmin=vmin, vmax=vmax, extent=(0, n3*d3 , 0, n2*d2), aspect='equal', origin='lower')
+    #     plt.title(f'Slice {slice_index} along Y axis')
+    # elif slice_direction == '[0 1 0]':  # 2nd direction
+    #     plt.xlabel(f'Z axis ({unit})')
+    #     plt.ylabel(f'Y axis ({unit})')
+    #     plt.imshow(volume[:, slice_index, :], cmap=cmap, vmin=vmin, vmax=vmax, extent=(0,n3*d3, 0, n1*d1), aspect='equal', origin='lower')
+    #     plt.title(f'Slice {slice_index} along X axis')
+    # elif slice_direction == '[0 0 1]':  # 3rd direction
+    #     plt.xlabel(f'Y axis ({unit})')
+    #     plt.ylabel(f'X axis ({unit})')
+    #     plt.imshow(volume[:, :, slice_index], cmap=cmap, vmin=vmin, vmax=vmax, extent=(0, n2*d2, 0, n1*d1), aspect='equal', origin='lower')
+    #     plt.title(f'Slice {slice_index} along Z axis')
 
-    plt.colorbar()
-    plt.show()
+    if slice_direction == '[1 0 0]':
 
+        img = volume[slice_index, :, :]
 
+        im.set_extent((0, n3*d3, 0, n2*d2))
+        ax.set_xlabel(f'Z axis ({unit})')
+        ax.set_ylabel(f'X axis ({unit})')
+        ax.set_title(f'Slice {slice_index} along Y axis')
 
+    elif slice_direction == '[0 1 0]':
 
+        img = volume[:, slice_index, :]
 
+        im.set_extent((0, n3*d3, 0, n1*d1))
+        ax.set_xlabel(f'Z axis ({unit})')
+        ax.set_ylabel(f'Y axis ({unit})')
+        ax.set_title(f'Slice {slice_index} along X axis')
 
+    else:
 
+        img = volume[:, :, slice_index]
 
+        im.set_extent((0, n2*d2, 0, n1*d1))
+        ax.set_xlabel(f'Y axis ({unit})')
+        ax.set_ylabel(f'X axis ({unit})')
+        ax.set_title(f'Slice {slice_index} along Z axis')
+
+    im.set_data(img)
+    im.set_clim(vmin, vmax)
+
+    fig.canvas.draw_idle()
